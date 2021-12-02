@@ -7,12 +7,29 @@ Dependencies: ncbi-acc-download
 """
 
 import os
+import subprocess
 from typing import OrderedDict
 
 from Bio import SeqIO, SeqFeature
 
-from phyloplacement.utils import terminalExecute
 
+def terminalExecute(command_str: str,
+                    suppress_shell_output=False,
+                    work_dir: str = None,
+                    return_output=False) -> subprocess.STDOUT:
+    """
+    Execute given command in terminal through Python
+    """
+    if suppress_shell_output:
+        stdout = subprocess.DEVNULL
+    else:
+        stdout = None
+    output = subprocess.run(
+        command_str, shell=True,
+        cwd=work_dir, capture_output=return_output,
+        stdout=stdout
+        )
+    return output
 
 class NCBIdownloader():
 

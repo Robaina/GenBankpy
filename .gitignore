@@ -1,0 +1,12 @@
+# Magic commands:
+# git restore --source HEAD~1 "PATH_IN_YOUR_REPO"
+
+# Directories
+.ipynb_checkpoints/
+__pycache__/
+data/*
+
+# Files
+test.ipynb
+
+# File types
