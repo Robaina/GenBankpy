@@ -10,7 +10,7 @@ import os
 import subprocess
 from typing import OrderedDict
 
-from Bio import SeqIO, SeqFeature
+from Bio import SeqIO, SeqFeature, SeqRecord
 
 
 def terminalExecute(command_str: str,
@@ -48,7 +48,8 @@ class NCBIdownloader():
             self._gbk_dir = os.path.abspath(data_dir)
         if not os.path.isdir(self._gbk_dir):
             os.mkdir(self._gbk_dir)
-        self._downloadGBKfromNCBI()
+        if not os.listdir(self._gbk_dir):
+            self._downloadGBKfromNCBI()
     
     @classmethod
     def fromEntryIDs(entry_ids: list):
@@ -79,18 +80,20 @@ class NCBIdownloader():
         """
         gbk = self._getGBKobject(entry_id)
         try:
-            return gbk.cds.get_by_keywords(feature_keywords, case_insensitive)
+            return (gbk.gbk_object, gbk.cds.get_by_keywords(feature_keywords, case_insensitive))
         except Exception:
             return None
 
     def _writeProteinSequencesFromCDSrecords(self, records: dict, output_fasta: str = None) -> None: 
         """
-        Write FASTA file from dict of gbk record qualifiers (Ordered dict)
+        Write FASTA file from dict of gbk cds SeqFeatures
+
+        records = {str: (SeqRecord, SeqFeature)}
         """
         with open(output_fasta, 'w') as file:
             for record_id, record in records.items():
                 if record is not None:
-                    record = record[0]
+                    record = record[1].qualifiers
                     ref_id = f'{record_id}_{record["protein_id"][0]}_{"_".join(record["product"][0].split())}'
                     file.write(f'>{ref_id}\n')
                     file.write(f'{record["translation"][0]}\n')
@@ -102,8 +105,9 @@ class NCBIdownloader():
         with open(output_fasta, 'w') as file:
             for record_id, record in records.items():
                 if record is not None:
-                    seq = None
-                    q = record['qualifiers']
+                    gbk_obj, cds = record
+                    q = cds.qualifiers
+                    seq = str(cds.extract(gbk_obj).seq)
                     ref_id = f'{record_id}_{q["protein_id"][0]}_{"_".join(q["product"][0].split())}'
                     file.write(f'>{ref_id}\n')
                     file.write(f'{seq}\n')
@@ -122,7 +126,7 @@ class NCBIdownloader():
         records_dict = {
             gbk_file.split('.gbk')[0]: self._getCDSMatchingKeywords(
                 os.path.join(self._gbk_dir, gbk_file),
-                cds_keywords=gene_keywords,
+                feature_keywords=gene_keywords,
                 case_insensitive=case_insensitive
                 ) for gbk_file in os.listdir(self._gbk_dir)
         }
@@ -140,11 +144,15 @@ class GBK():
     
     @property
     def cds(self) -> list:
-        return GBKfeatureList([f for f in self.features if 'CDS' in f.type])
+        return GBKfeatureList([f for f in self._gbk.features if 'cds' in f.type.lower()])
 
     @property
     def meta(self) -> OrderedDict:
-        return self.features[0].qualifiers
+        return self._gbk.features[0].qualifiers
+
+    @property
+    def gbk_object(self) -> SeqRecord:
+        return self._gbk
 
 class GBKfeatureList(list):
     """
@@ -170,8 +178,9 @@ class GBKfeatureList(list):
         else:
             return all([key in text for key in keywords])
     
-    def _cds_matched(self, cds: dict, feature_keywords: list,
+    def _cds_matched(self, cds: SeqFeature, feature_keywords: list,
                      case_insensitive: bool = True) -> bool:
+        cds = cds.qualifiers
         return all(
             [(field in cds.keys() and
               self._text_contains_keywords(cds[field][0], keywords, case_insensitive))
@@ -194,11 +203,11 @@ class GBKfeatureList(list):
             return [
                 cds for cds in self if self._cds_matched(cds, keywords, case_insensitive)
                 ][0]
-        except Exception:
-            raise ValueError(f'Feature not found for given keyword(s)')
+        except Exception as e:
+            raise ValueError(f'Feature not found for given keyword(s). Exception: {e}')
 
     def get_by_gene_id(self, gene_id: str, case_insensitive: bool = True) -> SeqFeature:
-        return self.get_by_keywords({'gene': gene_id}, case_insensitive)
+        return self.get_by_keywords({'gene': [gene_id]}, case_insensitive)
 
     def get_by_ec_number(self, ec: str, case_insensitive: bool = True) -> SeqFeature:
-        return self.get_by_keywords({'ec_number': ec}, case_insensitive)
+        return self.get_by_keywords({'ec_number': [ec]}, case_insensitive)

@@ -4,6 +4,7 @@
 # Directories
 .ipynb_checkpoints/
 __pycache__/
+gbk_data/*
 data/*
 
 # Files
