@@ -33,7 +33,7 @@ def terminalExecute(command_str: str,
 
 class NCBIdownloader():
 
-    def __int__(self, entry_ids: list, data_dir: str = None) -> None:
+    def __init__(self, entry_ids: list, data_dir: str = None) -> None:
         """
         Tools to download selected GenBank feactures from NCBI records.
 
@@ -43,12 +43,19 @@ class NCBIdownloader():
         """
         self.entry_ids = entry_ids
         if data_dir is None:
-            self._gbk_dir = os.path.join('gbk_data', os.getcwd())
+            self._gbk_dir = os.path.join(os.getcwd(), 'gbk_data')
         else:
             self._gbk_dir = os.path.abspath(data_dir)
         if not os.path.isdir(self._gbk_dir):
             os.mkdir(self._gbk_dir)
         self._downloadGBKfromNCBI()
+    
+    @classmethod
+    def fromEntryIDs(entry_ids: list):
+        pass
+    @classmethod
+    def fromGBKdirectory(gbk_dir: str):
+        pass
     
     def _downloadGBKfromNCBI(self) -> None: 
         """
