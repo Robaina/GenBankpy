@@ -31,7 +31,7 @@ def terminalExecute(command_str: str,
         )
     return output
 
-class NCBIdownloader():
+class GeneBank2Fasta():
 
     def __init__(self, entry_ids: list, data_dir: str = None) -> None:
         """
