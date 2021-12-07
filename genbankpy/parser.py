@@ -7,67 +7,68 @@ Dependencies: ncbi-acc-download
 """
 
 import os
-import subprocess
 from typing import OrderedDict
 
 from Bio import SeqIO, SeqFeature, SeqRecord
 
+from genbankpy.utils import contains_substring, terminalExecute
 
-def terminalExecute(command_str: str,
-                    suppress_shell_output=False,
-                    work_dir: str = None,
-                    return_output=False) -> subprocess.STDOUT:
-    """
-    Execute given command in terminal through Python
-    """
-    if suppress_shell_output:
-        stdout = subprocess.DEVNULL
-    else:
-        stdout = None
-    output = subprocess.run(
-        command_str, shell=True,
-        cwd=work_dir, capture_output=return_output,
-        stdout=stdout
-        )
-    return output
 
-class NCBIdownloader():
 
-    def __init__(self, entry_ids: list, data_dir: str = None) -> None:
+class GenBankFastaWriter():
+
+    def __init__(self, gbk_dir: str, entry_ids: list = None) -> None:
         """
         Tools to download selected GenBank feactures from NCBI records.
 
         @Arguments:
-        entry_ids: list containing valid GenBank entry ids
-        output_dir: path to directory where genbank files will be downloaded to
+        gbk_dir: path to directory where GenBank files are stored
         """
-        self.entry_ids = entry_ids
-        if data_dir is None:
-            self._gbk_dir = os.path.join(os.getcwd(), 'gbk_data')
+        self._gbk_dir = os.path.abspath(gbk_dir)
+        if entry_ids is None:
+            self._entry_ids = [
+                os.path.splitext(gbk)[0] for gbk in os.listdir(self._gbk_dir)
+                ]
         else:
-            self._gbk_dir = os.path.abspath(data_dir)
-        if not os.path.isdir(self._gbk_dir):
-            os.mkdir(self._gbk_dir)
-        if not os.listdir(self._gbk_dir):
-            self._downloadGBKfromNCBI()
+            self._entry_ids = entry_ids
+   
+    @classmethod
+    def fromAccessionIDs(cls, entry_ids: list, data_dir: str = None):
+        """
+        Initialize class from list of GenBank accession IDs
+        """
+        if data_dir is None:
+            gbk_dir = os.path.join(os.getcwd(), 'gbk_data')
+        else:
+            gbk_dir = os.path.abspath(data_dir)
+        if not os.path.isdir(gbk_dir):
+            os.mkdir(gbk_dir)
+        cls._downloadGBKfromNCBI(entry_ids, gbk_dir)
+        return cls(gbk_dir, entry_ids)
     
     @classmethod
-    def fromEntryIDs(entry_ids: list):
-        pass
-    @classmethod
-    def fromGBKdirectory(gbk_dir: str):
-        pass
+    def fromGBKdirectory(cls, gbk_dir: str):
+        """
+        Initialize class from directory containing GenBank files
+        """
+        return cls(gbk_dir)
     
-    def _downloadGBKfromNCBI(self) -> None: 
+    @staticmethod
+    def _downloadGBKfromNCBI(entry_ids: list, gbk_dir: str) -> None: 
         """
         Download GenBank files from NCBI from given list of entry IDs
         """
         print('Downloading GenBank files')
-        for n, entry_id in enumerate(self.entry_ids): 
-            print(f'Downloading entry: {entry_id} ({n + 1} / {len(self.entry_ids)})', end='\r')
-            outfasta = os.path.join(self._gbk_dir, f'{entry_id}.gbk')
-            cmd_str = f'ncbi-acc-download -o {outfasta} {entry_id}'
-            terminalExecute(cmd_str)
+        donwloaded_files = set(os.listdir(gbk_dir))
+        for n, entry_id in enumerate(entry_ids):
+            gbk_file = f'{entry_id}.gbk'
+            if gbk_file not in donwloaded_files:
+                print(f'Downloading entry: {entry_id} ({n + 1} / {len(entry_ids)})', end='\r')
+                outfasta = os.path.join(gbk_dir, gbk_file)
+                cmd_str = f'ncbi-acc-download -o {outfasta} {entry_id}'
+                terminalExecute(cmd_str)
+            else:
+                print(f'Skipping donwloaded entry: {entry_id} ({n + 1} / {len(entry_ids)})', end='\r')
     
     def _getGBKobject(self, entry_id: str) -> list:
         gbk = GBK(os.path.join(self._gbk_dir, entry_id))
@@ -115,7 +116,8 @@ class NCBIdownloader():
     def writeSequencesInFasta(self, gene_keywords: dict,
                               output_fasta: str = None,
                               case_insensitive: bool = True,
-                              sequence: str = 'protein') -> None:
+                              sequence: str = 'protein',
+                              entry_ids: list = None) -> None:
         """
         Write FASTA from list of GenBank files and cds entry field keywords
         @argument:
@@ -123,13 +125,19 @@ class NCBIdownloader():
         """
         if output_fasta is None:
             output_fasta = os.path.join(os.getcwd(), 'sequences.fasta')
+        if entry_ids is None:
+            entry_ids = self._entry_ids
+            
         records_dict = {
             gbk_file.split('.gbk')[0]: self._getCDSMatchingKeywords(
                 os.path.join(self._gbk_dir, gbk_file),
                 feature_keywords=gene_keywords,
                 case_insensitive=case_insensitive
-                ) for gbk_file in os.listdir(self._gbk_dir)
+                ) for gbk_file in os.listdir(self._gbk_dir) 
+                  if os.path.splitext(gbk_file)[0] in entry_ids
         }
+        if not records_dict:
+            raise ValueError('No records found in database for given feature')
         if 'protein' in sequence.lower():
             self._writeProteinSequencesFromCDSrecords(records_dict, output_fasta)
         else:
