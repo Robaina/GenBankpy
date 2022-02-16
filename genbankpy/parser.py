@@ -39,7 +39,7 @@ class GenBankFastaWriter():
     @classmethod
     def fromAccessionIDs(cls, entry_ids: list, data_dir: str = None):
         """
-        Initialize class from list of GenBank accession IDs
+        Initialize class from list of RefSeq accession IDs
         """
         if data_dir is None:
             gbk_dir = os.path.join(os.getcwd(), 'gbk_data')
@@ -49,6 +49,20 @@ class GenBankFastaWriter():
             os.mkdir(gbk_dir)
         cls._downloadGBKfromNCBI(entry_ids, gbk_dir)
         return cls(gbk_dir, entry_ids)
+
+    @classmethod
+    def fromSpecies(cls, species: list, data_dir: str = None):
+        """
+        Initialize class from list of Species
+        """
+        if data_dir is None:
+            gbk_dir = os.path.join(os.getcwd(), 'gbk_data')
+        else:
+            gbk_dir = os.path.abspath(data_dir)
+        if not os.path.isdir(gbk_dir):
+            os.mkdir(gbk_dir)
+        pass
+
     
     @classmethod
     def fromGBKdirectory(cls, gbk_dir: str):
