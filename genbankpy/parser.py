@@ -68,8 +68,8 @@ class GenBankFastaWriter():
             gbk_file = f'{entry_id}.gbk'
             if gbk_file not in donwloaded_files:
                 print(f'Downloading entry: {entry_id} ({n + 1} / {len(entry_ids)})', end='\r')
-                outfasta = os.path.join(gbk_dir, gbk_file)
-                cmd_str = f'ncbi-acc-download -o {outfasta} {entry_id}'
+                outgbk = os.path.join(gbk_dir, gbk_file)
+                cmd_str = f'ncbi-acc-download -o {outgbk} {entry_id}'
                 terminalExecute(cmd_str)
             else:
                 print(f'Skipping donwloaded entry: {entry_id} ({n + 1} / {len(entry_ids)})', end='\r')
