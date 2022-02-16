@@ -31,6 +31,10 @@ class GenBankFastaWriter():
                 ]
         else:
             self._entry_ids = entry_ids
+        self._gbks = {
+            entry_id: self._getGBKobject(entry_id)
+            for entry_id in entry_ids
+        }
    
     @classmethod
     def fromAccessionIDs(cls, entry_ids: list, data_dir: str = None):
@@ -71,47 +75,49 @@ class GenBankFastaWriter():
                 print(f'Skipping donwloaded entry: {entry_id} ({n + 1} / {len(entry_ids)})', end='\r')
     
     def _getGBKobject(self, entry_id: str) -> list:
-        gbk = GBK(os.path.join(self._gbk_dir, entry_id))
+        gbk = GBK(os.path.join(self._gbk_dir, f"{entry_id}.gbk"))
         return gbk
 
     def _getCDSMatchingKeywords(self, entry_id: str, feature_keywords: dict,
-                                case_insensitive: bool = True) -> SeqFeature:
+                                case_insensitive: bool = True) -> list:
         """
         Extract cds record matching keywords from gbk file.
         """
-        gbk = self._getGBKobject(entry_id)
+        gbk = self._gbks[entry_id]
         try:
-            return (gbk.gbk_object, gbk.cds.get_by_keywords(feature_keywords, case_insensitive))
+            return gbk.cds.get_by_keywords(feature_keywords, case_insensitive)
         except Exception:
-            return None
+            return []
 
     def _writeProteinSequencesFromCDSrecords(self, records: dict, output_fasta: str = None) -> None: 
         """
         Write FASTA file from dict of gbk cds SeqFeatures
 
-        records = {str: (SeqRecord, SeqFeature)}
+        records = {'entry_id': [SeqFeature]}
         """
         with open(output_fasta, 'w') as file:
-            for record_id, record in records.items():
-                if record is not None:
-                    record = record[1].qualifiers
-                    ref_id = f'{record_id}_{record["protein_id"][0]}_{"_".join(record["product"][0].split())}'
-                    file.write(f'>{ref_id}\n')
-                    file.write(f'{record["translation"][0]}\n')
+            for entry_id, cds_list in records.items():
+                if cds_list:
+                    for cds in cds_list:
+                        q = cds.qualifiers
+                        ref_id = f'{entry_id}_{q["protein_id"][0]}_{"_".join(q["product"][0].split())}'
+                        file.write(f'>{ref_id}\n')
+                        file.write(f'{q["translation"][0]}\n')
 
     def _writeNucleotideSequencesFromCDSrecords(self, records: dict, output_fasta: str = None) -> None: 
         """
         Write FASTA file from dict of gbk record qualifiers (Ordered dict)
         """
         with open(output_fasta, 'w') as file:
-            for record_id, record in records.items():
-                if record is not None:
-                    gbk_obj, cds = record
-                    q = cds.qualifiers
-                    seq = str(cds.extract(gbk_obj).seq)
-                    ref_id = f'{record_id}_{q["protein_id"][0]}_{"_".join(q["product"][0].split())}'
-                    file.write(f'>{ref_id}\n')
-                    file.write(f'{seq}\n')
+            for entry_id, cds_list in records.items():
+                gbk_obj = self._gbks[entry_id].gbk_object
+                if cds_list:
+                    for cds in cds_list:
+                        q = cds.qualifiers
+                        seq = str(cds.extract(gbk_obj).seq)
+                        ref_id = f'{entry_id}_{q["protein_id"][0]}_{"_".join(q["product"][0].split())}'
+                        file.write(f'>{ref_id}\n')
+                        file.write(f'{seq}\n')
 
     def writeSequencesInFasta(self, gene_keywords: dict,
                               output_fasta: str = None,
@@ -129,12 +135,11 @@ class GenBankFastaWriter():
             entry_ids = self._entry_ids
             
         records_dict = {
-            gbk_file.split('.gbk')[0]: self._getCDSMatchingKeywords(
-                os.path.join(self._gbk_dir, gbk_file),
+            entry_id: self._getCDSMatchingKeywords(
+                entry_id=entry_id,
                 feature_keywords=gene_keywords,
                 case_insensitive=case_insensitive
-                ) for gbk_file in os.listdir(self._gbk_dir) 
-                  if os.path.splitext(gbk_file)[0] in entry_ids
+                ) for entry_id in entry_ids
         }
         if not records_dict:
             raise ValueError('No records found in database for given feature')
@@ -180,13 +185,19 @@ class GBKfeatureList(list):
     
     @staticmethod
     def _text_contains_keywords(text: str, keywords: list,
-                                case_insensitive: bool = True) -> bool: 
-        if case_insensitive:
-            return all([key.lower() in text.lower() for key in keywords])
+                                case_insensitive: bool = True) -> bool:
+        """
+        Match keyword in text string
+        """
+        if 'any' in [k.lower() for k in keywords]:
+            return True
         else:
-            return all([key in text for key in keywords])
+            if case_insensitive:
+                return all([key.lower() in text.lower() for key in keywords])
+            else:
+                return all([key in text for key in keywords])
     
-    def _cds_matched(self, cds: SeqFeature, feature_keywords: list,
+    def _cds_matched(self, cds: SeqFeature, feature_keywords: dict,
                      case_insensitive: bool = True) -> bool:
         cds = cds.qualifiers
         return all(
@@ -195,7 +206,7 @@ class GBKfeatureList(list):
             for field, keywords in feature_keywords.items()]
             )
 
-    def get_by_keywords(self, keywords: dict, case_insensitive: bool = True) -> SeqFeature:
+    def get_by_keywords(self, keywords: dict, case_insensitive: bool = True) -> list:
         """
         Extract cds record matching keywords.
         @Arguments:
@@ -206,11 +217,16 @@ class GBKfeatureList(list):
             'product': ['urease', 'alpha'] 
         }
         case_insensitive: whether or not to care for case when matching keywords 
+        NOTE:
+        Use keywords = {
+            'gene': ['any']
+        }
+        To get the complete list of cds entries
         """
         try:
             return [
                 cds for cds in self if self._cds_matched(cds, keywords, case_insensitive)
-                ][0]
+                ]
         except Exception as e:
             raise ValueError(f'Feature not found for given keyword(s). Exception: {e}')
 
