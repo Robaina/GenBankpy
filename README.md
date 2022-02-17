@@ -1,7 +1,23 @@
-# Downloading and parsing GenBank files
+# Downloading and parsing GenBank files from Python
+
+## Installation
+1. Fork git repo into local machine (click on fork) and clone, or simply clone main branch with
+```
+git clone https://github.com/Robaina/GenBankpy.git
+```
+2. CD to project directory and set conda environment if not already set:
+```
+conda env create -n ncbi -f environment.yml
+```
+
+3. Activate environment:
+```
+conda activate ncbi
+```
 
 
 ```python
+# conda activate ncbi
 from genbankpy.parser import GenBankFastaWriter, GBK
 
 """
@@ -65,6 +81,23 @@ gbkwriter.writeSequencesInFasta(
     output_fasta='results/16s.fasta', 
     sequence='nucleotide',
     entry_ids=None
+)
+```
+
+# Initializing from list of species names
+
+
+```python
+sp_list = ['Emiliania huxleyi']
+
+gbkwriter = GenBankFastaWriter.fromSpecies(species_list=sp_list,
+                                           only_representatives=True)
+
+
+gbkwriter.writeSequencesInFasta(
+    gene_keywords={'product': ['any']},
+    output_fasta='results/allPeptidesEmiliania.faa', 
+    sequence='protein'
 )
 ```
 
