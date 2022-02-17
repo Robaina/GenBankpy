@@ -7,6 +7,7 @@ Dependencies: ncbi-acc-download
 """
 
 import os
+import gzip
 import warnings
 from typing import OrderedDict
 
@@ -19,7 +20,7 @@ from genbankpy.utils import contains_substring, terminalExecute, fullPathListDir
 
 class GenBankFastaWriter():
 
-    def __init__(self, data_files: dict, gbk_dir: str) -> None:
+    def __init__(self, data_files: dict) -> None:
         """
         Tools to download selected GenBank feactures from NCBI records.
 
@@ -27,7 +28,6 @@ class GenBankFastaWriter():
         gbk_dir: path to directory where GenBank files are stored
         """
         self._data_files = data_files
-        self._gbk_dir = os.path.abspath(gbk_dir)
         self._entry_ids = list(self._data_files.keys())
         self._gbks = {
             entry_id: self._getGBKobject(gbk_path)
@@ -53,13 +53,16 @@ class GenBankFastaWriter():
             gbk_dir = os.path.abspath(data_dir)
         if not os.path.isdir(gbk_dir):
             os.mkdir(gbk_dir)
-        data_files = cls._downloadGBKfromNCBI(entry_ids, gbk_dir)
-        return cls(data_files, gbk_dir)
+        data_files = cls.downloadGBKfromNCBI(entry_ids, gbk_dir)
+        return cls(data_files)
 
     @classmethod
-    def fromSpecies(cls, species_list: list, data_dir: str = None):
+    def fromSpecies(cls, species_list: list, data_dir: str = None,
+                    only_representatives: bool = True):
         """
         Initialize class from list of Species
+        If only_representative, only keep files tagged as 
+        RefSeq 'representative genome'
         """
         if data_dir is None:
             gbk_dir = os.path.join(os.getcwd(), 'gbk_data')
@@ -67,9 +70,9 @@ class GenBankFastaWriter():
             gbk_dir = os.path.abspath(data_dir)
         if not os.path.isdir(gbk_dir):
             os.mkdir(gbk_dir)
-        data_files = cls._downloadGBKfromSpecies(species_list, gbk_dir,
-                                                 only_representative=True)
-        return cls(data_files, gbk_dir)
+        data_files = cls.downloadGBKfromSpecies(species_list, gbk_dir,
+                                                only_representative=only_representatives)
+        return cls(data_files)
         
     @classmethod
     def fromGBKdirectory(cls, gbk_dir: str):
@@ -81,21 +84,30 @@ class GenBankFastaWriter():
             os.path.splitext(os.path.basename(file))[0]: file
             for file in files
         }
-        return cls(data_files, gbk_dir)
-
+        return cls(data_files)
+    
     @staticmethod
-    def _downloadGBKfromSpecies(species_list: list, gbk_dir: str,
-                                only_representative: bool = False):
+    def downloadGBKfromSpecies(species_list: list, gbk_dir: str,
+                               only_representative: bool = False):
         """
         Download GenBank files from RefSeq given list of species names
         If only_representative, only keep files tagged as 
         RefSeq 'representative genome'
         """
         downloaded_files = {}
+        # already_downloaded = os.listdir(gbk_dir)
         meta_dir = os.path.join(gbk_dir, "metadata/")
         if not os.path.exists(meta_dir):
             os.makedirs(meta_dir)
         for n, species in enumerate(species_list):
+            # accession_refs_to_download = listNCBIfilesToDownload(species)
+             
+            # any_matched = any(
+            #     [acc_id in file
+            #     for file in already_downloaded
+            #     for acc_id in accession_refs_to_download]
+            # )
+
             species_id = species.replace(' ', '_')
             print(f'Downloading data for species: {species} ({n + 1} / {len(species_list)})', end='\r')
             meta_file = f"{species_id}_metadata.txt"
@@ -110,25 +122,37 @@ class GenBankFastaWriter():
             if only_representative:
                 meta_norep = meta[meta.refseq_category != 'representative genome']
                 meta = meta[meta.refseq_category == 'representative genome']
-                discarded_files = [row.local_filename.strip('./') for i, row in meta_norep.iterrows()]
+                discarded_files = [row.local_filename for i, row in meta_norep.iterrows()]
                 # Remove discarded files
                 for file in discarded_files:
-                    os.remove(os.path.join(gbk_dir, file))
+                    os.remove(os.path.abspath(file))
 
             for i, row in meta.iterrows():
                 downloaded_files[
                     f"{row.assembly_accession}_{species_id}"
-                    ] = os.path.join(gbk_dir, row.local_filename.strip('./'))
-            return downloaded_files
+                    ] = os.path.abspath(row.local_filename)
+        return downloaded_files
+
+    @staticmethod
+    def listNCBIfilesToDownload(species: str):
+        cmd_str = (
+            f"ncbi-genome-download --genera '{species}' all "
+            f"--flat-output --dry-run"
+        )
+        out = terminalExecute(cmd_str, return_output=True)
+        return [
+            f.split('\t')[0] 
+            for f in out.stdout.decode('UTF-8').split('\n')[1:] if f
+            ]
     
     @staticmethod
-    def _downloadGBKfromNCBI(entry_ids: list, gbk_dir: str) -> None: 
+    def downloadGBKfromNCBI(entry_ids: list, gbk_dir: str) -> None: 
         """
         Download GenBank files from NCBI from given list of entry IDs
         """
         print('Downloading GenBank files')
         downloaded_files = {}
-        already_donwloaded = set(os.listdir(gbk_dir))
+        already_donwloaded = os.listdir(gbk_dir)
         for n, entry_id in enumerate(entry_ids):
             gbk_file = f'{entry_id}.gbk'
             if gbk_file not in already_donwloaded:
@@ -224,7 +248,13 @@ class GBK():
     Tools to parse GenBank files
     """
     def __init__(self, gbk_file: str) -> None:
-        self._gbk = list(SeqIO.parse(gbk_file, 'genbank'))[0]
+
+        if gbk_file.endswith('.gz'):
+            file_handle = gzip.open(gbk_file, 'rt')
+        else:
+            file_handle = open(gbk_file)
+        self._gbk = list(SeqIO.parse(file_handle, 'genbank'))[0]
+        file_handle.close()
     
     @property
     def cds(self) -> list:
