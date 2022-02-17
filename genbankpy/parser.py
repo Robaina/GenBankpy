@@ -2,8 +2,6 @@
 # -*- coding: utf-8 -*-
 
 """
-Obtain FASTA with gene sequences from list of NCBI accession ids
-Dependencies: ncbi-acc-download
 """
 
 import os
