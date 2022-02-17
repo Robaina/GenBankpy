@@ -6,6 +6,7 @@ Obtain FASTA with gene sequences from list of NCBI accession ids
 Dependencies: ncbi-acc-download
 """
 
+import os
 import subprocess
 
 def terminalExecute(command_str: str,
@@ -28,3 +29,9 @@ def terminalExecute(command_str: str,
 
 def contains_substring(substring, strings: list) -> bool:
     return any(substring in string for string in strings)
+
+def fullPathListDir(dir: str) -> list:
+    """
+    Return full path of files in provided directory
+    """
+    return [os.path.join(dir, file) for file in os.listdir(dir)]

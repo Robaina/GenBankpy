@@ -7,34 +7,40 @@ Dependencies: ncbi-acc-download
 """
 
 import os
+import warnings
 from typing import OrderedDict
 
 from Bio import SeqIO, SeqFeature, SeqRecord
+import pandas as pd
 
-from genbankpy.utils import contains_substring, terminalExecute
+from genbankpy.utils import contains_substring, terminalExecute, fullPathListDir
 
 
 
 class GenBankFastaWriter():
 
-    def __init__(self, gbk_dir: str, entry_ids: list = None) -> None:
+    def __init__(self, data_files: dict, gbk_dir: str) -> None:
         """
         Tools to download selected GenBank feactures from NCBI records.
 
         @Arguments:
         gbk_dir: path to directory where GenBank files are stored
         """
+        self._data_files = data_files
         self._gbk_dir = os.path.abspath(gbk_dir)
-        if entry_ids is None:
-            self._entry_ids = [
-                os.path.splitext(gbk)[0] for gbk in os.listdir(self._gbk_dir)
-                ]
-        else:
-            self._entry_ids = entry_ids
+        self._entry_ids = list(self._data_files.keys())
         self._gbks = {
-            entry_id: self._getGBKobject(entry_id)
-            for entry_id in entry_ids
+            entry_id: self._getGBKobject(gbk_path)
+            for entry_id, gbk_path in self._data_files.items()
         }
+
+    @property
+    def donwloaded_files(self):
+        return self._data_files
+
+    @property
+    def entry_ids(self):
+        return self._entry_ids
    
     @classmethod
     def fromAccessionIDs(cls, entry_ids: list, data_dir: str = None):
@@ -47,11 +53,11 @@ class GenBankFastaWriter():
             gbk_dir = os.path.abspath(data_dir)
         if not os.path.isdir(gbk_dir):
             os.mkdir(gbk_dir)
-        cls._downloadGBKfromNCBI(entry_ids, gbk_dir)
-        return cls(gbk_dir, entry_ids)
+        data_files = cls._downloadGBKfromNCBI(entry_ids, gbk_dir)
+        return cls(data_files, gbk_dir)
 
     @classmethod
-    def fromSpecies(cls, species: list, data_dir: str = None):
+    def fromSpecies(cls, species_list: list, data_dir: str = None):
         """
         Initialize class from list of Species
         """
@@ -61,15 +67,59 @@ class GenBankFastaWriter():
             gbk_dir = os.path.abspath(data_dir)
         if not os.path.isdir(gbk_dir):
             os.mkdir(gbk_dir)
-        pass
-
-    
+        data_files = cls._downloadGBKfromSpecies(species_list, gbk_dir,
+                                                 only_representative=True)
+        return cls(data_files, gbk_dir)
+        
     @classmethod
     def fromGBKdirectory(cls, gbk_dir: str):
         """
         Initialize class from directory containing GenBank files
         """
-        return cls(gbk_dir)
+        files = fullPathListDir(gbk_dir)
+        data_files = {
+            os.path.splitext(os.path.basename(file))[0]: file
+            for file in files
+        }
+        return cls(data_files, gbk_dir)
+
+    @staticmethod
+    def _downloadGBKfromSpecies(species_list: list, gbk_dir: str,
+                                only_representative: bool = False):
+        """
+        Download GenBank files from RefSeq given list of species names
+        If only_representative, only keep files tagged as 
+        RefSeq 'representative genome'
+        """
+        downloaded_files = {}
+        meta_dir = os.path.join(gbk_dir, "metadata/")
+        if not os.path.exists(meta_dir):
+            os.makedirs(meta_dir)
+        for n, species in enumerate(species_list):
+            species_id = species.replace(' ', '_')
+            print(f'Downloading data for species: {species} ({n + 1} / {len(species_list)})', end='\r')
+            meta_file = f"{species_id}_metadata.txt"
+            meta_path = os.path.join(meta_dir, meta_file)
+            cmd_str = (
+                f"ncbi-genome-download --genera '{species}' all "
+                f"--flat-output -o {gbk_dir} --metadata-table {meta_path}"
+            )
+            terminalExecute(cmd_str)
+            # Parse meta
+            meta = pd.read_csv(meta_path, sep='\t')
+            if only_representative:
+                meta_norep = meta[meta.refseq_category != 'representative genome']
+                meta = meta[meta.refseq_category == 'representative genome']
+                discarded_files = [row.local_filename.strip('./') for i, row in meta_norep.iterrows()]
+                # Remove discarded files
+                for file in discarded_files:
+                    os.remove(os.path.join(gbk_dir, file))
+
+            for i, row in meta.iterrows():
+                downloaded_files[
+                    f"{row.assembly_accession}_{species_id}"
+                    ] = os.path.join(gbk_dir, row.local_filename.strip('./'))
+            return downloaded_files
     
     @staticmethod
     def _downloadGBKfromNCBI(entry_ids: list, gbk_dir: str) -> None: 
@@ -77,19 +127,25 @@ class GenBankFastaWriter():
         Download GenBank files from NCBI from given list of entry IDs
         """
         print('Downloading GenBank files')
-        donwloaded_files = set(os.listdir(gbk_dir))
+        downloaded_files = {}
+        already_donwloaded = set(os.listdir(gbk_dir))
         for n, entry_id in enumerate(entry_ids):
             gbk_file = f'{entry_id}.gbk'
-            if gbk_file not in donwloaded_files:
+            if gbk_file not in already_donwloaded:
                 print(f'Downloading entry: {entry_id} ({n + 1} / {len(entry_ids)})', end='\r')
                 outgbk = os.path.join(gbk_dir, gbk_file)
                 cmd_str = f'ncbi-acc-download -o {outgbk} {entry_id}'
                 terminalExecute(cmd_str)
+                if os.path.exists(outgbk):
+                    downloaded_files[entry_id] = outgbk
+                else:
+                    warnings.warn(f"File {gbk_file} could not be donwloaded")
             else:
                 print(f'Skipping donwloaded entry: {entry_id} ({n + 1} / {len(entry_ids)})', end='\r')
+        return downloaded_files
     
-    def _getGBKobject(self, entry_id: str) -> list:
-        gbk = GBK(os.path.join(self._gbk_dir, f"{entry_id}.gbk"))
+    def _getGBKobject(self, gbk_path: str) -> list:
+        gbk = GBK(gbk_path)
         return gbk
 
     def _getCDSMatchingKeywords(self, entry_id: str, feature_keywords: dict,
@@ -161,6 +217,7 @@ class GenBankFastaWriter():
             self._writeProteinSequencesFromCDSrecords(records_dict, output_fasta)
         else:
             self._writeNucleotideSequencesFromCDSrecords(records_dict, output_fasta)
+    
 
 class GBK():
     """
