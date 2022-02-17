@@ -24,6 +24,10 @@ class GenBankFastaWriter():
         """
         Tools to download selected GenBank feactures from NCBI records.
 
+        Requires (pip) installing:
+        1. ncbi-genome-download (https://github.com/kblin/ncbi-genome-download)
+        2. ncbi-acc-download (https://github.com/kblin/ncbi-acc-download)
+
         @Arguments:
         gbk_dir: path to directory where GenBank files are stored
         """
