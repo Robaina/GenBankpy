@@ -5,14 +5,14 @@
 """
 
 import os
-import gzip
+import shutil
 import warnings
 from typing import OrderedDict
 
 from Bio import SeqIO, SeqFeature, SeqRecord
 import pandas as pd
 
-from genbankpy.utils import contains_substring, terminalExecute, fullPathListDir
+from genbankpy.utils import setDefaultOutputPath, terminalExecute, fullPathListDir, unZipFile, mergeMultiRecordGBK
 
 
 
@@ -81,7 +81,7 @@ class GenBankFastaWriter():
         """
         Initialize class from directory containing GenBank files
         """
-        files = fullPathListDir(gbk_dir)
+        files = [file for file in fullPathListDir(gbk_dir) if os.path.isfile(file)]
         data_files = {
             os.path.splitext(os.path.basename(file))[0]: file
             for file in files
@@ -102,14 +102,6 @@ class GenBankFastaWriter():
         if not os.path.exists(meta_dir):
             os.makedirs(meta_dir)
         for n, species in enumerate(species_list):
-            # accession_refs_to_download = listNCBIfilesToDownload(species)
-             
-            # any_matched = any(
-            #     [acc_id in file
-            #     for file in already_downloaded
-            #     for acc_id in accession_refs_to_download]
-            # )
-
             species_id = species.replace(' ', '_')
             print(f'Downloading data for species: {species} ({n + 1} / {len(species_list)})', end='\r')
             meta_file = f"{species_id}_metadata.txt"
@@ -246,17 +238,37 @@ class GenBankFastaWriter():
     
 
 class GBK():
-    """
-    Tools to parse GenBank files
-    """
-    def __init__(self, gbk_file: str) -> None:
 
+    def __init__(self, gbk_file: str) -> None:
+        """
+        Tools to parse GenBank files
+        """
+        print("Initializing parser...")
+        # Deal with compressed GBKs
         if gbk_file.endswith('.gz'):
-            file_handle = gzip.open(gbk_file, 'rt')
-        else:
-            file_handle = open(gbk_file)
-        self._gbk = list(SeqIO.parse(file_handle, 'genbank'))[0]
+            unZipFile(
+                input_file=gbk_file,
+            )
+            gbk_file = gbk_file.strip('.gz')
+        
+        file_handle = open(gbk_file)
+        gbk_objs = list(SeqIO.parse(file_handle, 'genbank'))
         file_handle.close()
+
+        # Deal with multi-record GBKs
+        if len(gbk_objs) > 1:
+            merged_gbk = setDefaultOutputPath(
+                input_path=gbk_file, tag='_merged'
+            )
+            mergeMultiRecordGBK(
+                input_file=gbk_file,
+                output_file=merged_gbk
+            )
+            self._gbk = list(SeqIO.parse(merged_gbk, 'genbank'))[0]
+            shutil.move(merged_gbk, gbk_file)
+        else:
+            self._gbk = gbk_objs[0]
+        print("Done!")
     
     @property
     def cds(self) -> list:
