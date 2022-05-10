@@ -112,23 +112,29 @@ class GenBankFastaWriter():
             )
             terminalExecute(cmd_str)
             # Parse meta
-            meta = pd.read_csv(meta_path, sep='\t')
-            if only_representative:
-                meta_norep = meta[meta.refseq_category != 'representative genome']
-                meta = meta[meta.refseq_category == 'representative genome']
-                discarded_files = [row.local_filename for i, row in meta_norep.iterrows()]
-                # Remove discarded files
-                for file in discarded_files:
-                    os.remove(os.path.abspath(file))
+            if os.path.exists(meta_path):
+                meta = pd.read_csv(meta_path, sep='\t')
+                if only_representative:
+                    meta_norep = meta[meta.refseq_category != 'representative genome']
+                    meta = meta[meta.refseq_category == 'representative genome']
+                    discarded_files = [row.local_filename for i, row in meta_norep.iterrows()]
+                    # Remove discarded files
+                    for file in discarded_files:
+                        os.remove(os.path.abspath(file))
 
-            for i, row in meta.iterrows():
-                downloaded_files[
-                    f"{row.assembly_accession}_{species_id}"
-                    ] = os.path.abspath(row.local_filename)
+                for i, row in meta.iterrows():
+                    downloaded_files[
+                        f"{row.assembly_accession}_{species_id}"
+                        ] = os.path.abspath(row.local_filename)
+            else:
+                warnings.warn(f'Species {species} not found in database')
         return downloaded_files
 
     @staticmethod
     def listNCBIfilesToDownload(species: str):
+        """
+        List downloadable genomes for given species
+        """
         cmd_str = (
             f"ncbi-genome-download --genera '{species}' all "
             f"--flat-output --dry-run"
