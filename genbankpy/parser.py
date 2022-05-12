@@ -194,6 +194,8 @@ class GenBankFastaWriter():
                 if cds_list:
                     for cds in cds_list:
                         q = cds.qualifiers
+                        if 'translation' not in q:
+                            raise ValueError("Field: translation not found in gbk/gbff file")
                         protein_id = f"_{q['protein_id'][0]}_" if "protein_id" in q else ""
                         ref_id = f'{entry_id}{protein_id}{"_".join(q["product"][0].split())}'
                         file.write(f'>{ref_id}\n')
