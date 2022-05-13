@@ -90,7 +90,7 @@ class GenBankFastaWriter():
     
     @staticmethod
     def downloadGBKfromSpecies(species_list: list, gbk_dir: str,
-                               only_representative: bool = False):
+                               only_representative: bool = False) -> dict:
         """
         Download GenBank files from RefSeq given list of species names
         If only_representative, only keep files tagged as 
@@ -121,7 +121,6 @@ class GenBankFastaWriter():
                     # Remove discarded files
                     for file in discarded_files:
                         os.remove(os.path.abspath(file))
-
                 for i, row in meta.iterrows():
                     downloaded_files[
                         f"{row.assembly_accession}_{species_id}"
@@ -131,7 +130,7 @@ class GenBankFastaWriter():
         return downloaded_files
 
     @staticmethod
-    def listNCBIfilesToDownload(species: str):
+    def listNCBIfilesToDownload(species: str) -> list:
         """
         List downloadable genomes for given species
         """
@@ -194,12 +193,13 @@ class GenBankFastaWriter():
                 if cds_list:
                     for cds in cds_list:
                         q = cds.qualifiers
-                        if 'translation' not in q:
-                            raise ValueError("Field: translation not found in gbk/gbff file")
-                        protein_id = f"_{q['protein_id'][0]}_" if "protein_id" in q else ""
-                        ref_id = f'{entry_id}{protein_id}{"_".join(q["product"][0].split())}'
-                        file.write(f'>{ref_id}\n')
-                        file.write(f'{q["translation"][0]}\n')
+                        if "translation" in q.keys():
+                            protein_id = f"_{q['protein_id'][0]}_" if "protein_id" in q else ""
+                            ref_id = f'{entry_id}{protein_id}{"_".join(q["product"][0].split())}'
+                            file.write(f'>{ref_id}\n')
+                            file.write(f'{q["translation"][0]}\n')
+                        # else:
+                        #     warnings.warn(f"Field: translation not found in CDS record with locus tag: {q['locus_tag']}")
 
     def _writeNucleotideSequencesFromCDSrecords(self, records: dict, output_fasta: str = None) -> None: 
         """
@@ -231,7 +231,7 @@ class GenBankFastaWriter():
             output_fasta = os.path.join(os.getcwd(), 'sequences.fasta')
         if entry_ids is None:
             entry_ids = self._entry_ids
-            
+        
         records_dict = {
             entry_id: self._getCDSMatchingKeywords(
                 entry_id=entry_id,

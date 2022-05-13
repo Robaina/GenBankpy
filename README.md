@@ -91,7 +91,8 @@ gbkwriter.writeSequencesInFasta(
 sp_list = ['Emiliania huxleyi']
 
 gbkwriter = GenBankFastaWriter.fromSpecies(species_list=sp_list,
-                                           only_representatives=True)
+                                           only_representatives=True,
+                                           data_dir='emiliania_data')
 
 
 gbkwriter.writeSequencesInFasta(
