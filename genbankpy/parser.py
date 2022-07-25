@@ -103,7 +103,7 @@ class GenBankFastaWriter():
             os.makedirs(meta_dir)
         for n, species in enumerate(species_list):
             species_id = species.replace(' ', '_')
-            print(f'Downloading data for species: {species} ({n + 1} / {len(species_list)})', end='\r')
+            print(f'Downloading data for species: {species} ({n + 1} / {len(species_list)})') # , end='\r')
             meta_file = f"{species_id}_metadata.txt"
             meta_path = os.path.join(meta_dir, meta_file)
             cmd_str = (
@@ -115,7 +115,12 @@ class GenBankFastaWriter():
             if os.path.exists(meta_path):
                 meta = pd.read_csv(meta_path, sep='\t')
                 if only_representative:
-                    meta_norep = meta[meta.refseq_category != 'representative genome']
+                    meta_norep = meta[
+                        (
+                            (meta.refseq_category != 'representative genome') |
+                            (meta.refseq_category != 'reference genome')
+                            )
+                        ]
                     meta = meta[meta.refseq_category == 'representative genome']
                     discarded_files = [row.local_filename for i, row in meta_norep.iterrows()]
                     # Remove discarded files
