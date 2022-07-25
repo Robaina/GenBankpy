@@ -6,6 +6,7 @@
 __pycache__/
 gbk_data/*
 data/*
+tree_test/
 
 # Files
 test.ipynb
