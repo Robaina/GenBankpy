@@ -12,10 +12,9 @@ from pathlib import Path
 from typing import OrderedDict
 
 from Bio import SeqIO, SeqFeature, SeqRecord
-import pandas as pd
 
 from genbankpy.utils import setDefaultOutputPath, fullPathListDir, unZipFile, mergeMultiRecordGBK
-
+from genbankpy.download import NCBIdownloader
 
 
 class GenBankFastaWriter():

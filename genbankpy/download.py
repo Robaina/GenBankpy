@@ -45,10 +45,16 @@ class NCBIdownloader:
             terminalExecute(cmd_str, work_dir=tmpdirname)
             self._getDownloadedFiles(Path(tmpdirname), zipfilename)
 
-    def fromSpecies(self, species: str, data_directory: Path = None) -> dict[Path]:
+    def fromSpecies(self, species: str,
+                    data_directory: Path = None,
+                    dry_run: bool = False) -> dict[Path]:
         """
         Download genomes from NCBI by species name (a single species name)
         """
+        if dry_run:
+            dry_str = "--dehydrated"
+        else:
+            dry_str = ""
         data_dir = data_directory if data_directory is not None else self._data_dir
         self.updateDataDirectory(data_dir)
         zipfilename = "ncbi_dataset.zip"
@@ -56,7 +62,7 @@ class NCBIdownloader:
             f"datasets download genome taxon '{species}' "
             f"--exclude-gff3 --exclude-protein --exclude-rna --exclude-seq --exclude-genomic-cds --include-gbff "
             f"--reference --annotated --assembly-level 'complete_genome' --assembly-source 'refseq' "
-            f"--filename {zipfilename} --no-progressbar"
+            f"--filename {zipfilename} --no-progressbar {dry_str}"
         )
         with tempfile.TemporaryDirectory() as tmpdirname:
             terminalExecute(cmd_str, work_dir=tmpdirname)
@@ -91,8 +97,6 @@ class NCBIdownloader:
         data_dir = data_directory if data_directory is not None else self._data_dir
         if output_file is None:
             output_file = data_dir / "metadata.tsv"
-
-        # (several jsonl may be pasted together)
         meta_jsonl = [
             file for file in data_dir.iterdir()
             if "data_report.jsonl" in file.as_posix()
