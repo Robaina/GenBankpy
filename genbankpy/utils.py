@@ -6,12 +6,14 @@ Obtain FASTA with gene sequences from list of NCBI accession ids
 Dependencies: ncbi-acc-download
 """
 
+from __future__ import annotations
 import os
-import gzip
-import shutil
 import random
 import string
+import json
 import subprocess
+from zipfile import ZipFile
+from pathlib import Path
 
 
 class TemporaryFilePath:
@@ -60,6 +62,19 @@ def terminalExecute(command_str: str,
         stdout=stdout
         )
     return output
+
+def getJSONlinesObject(json_file: Path) -> list[dict]:
+    with open(json_file, 'r') as JSON:
+        return [json.loads(jline) for jline in JSON.read().splitlines()]
+
+def unZipDirectory(input_zip: Path, output_dir: Path  = None) -> None:
+    """
+    Unzip file to specified directory
+    """
+    if output_dir is None:
+        output_dir = Path(input_zip.parent)
+    with ZipFile(input_zip, 'r') as zipObj:
+        zipObj.extractall(path=output_dir, members=None)
 
 def contains_substring(substring, strings: list) -> bool:
     return any(substring in string for string in strings)

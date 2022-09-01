@@ -1,122 +1,41 @@
-# Downloading and parsing GenBank files from Python
+# NCBI Datasets
 
-## Installation
-1. Fork git repo into local machine (click on fork) and clone, or simply clone main branch with
-```
-git clone https://github.com/Robaina/GenBankpy.git
-```
-2. CD to project directory and set conda environment if not already set:
-```
-conda env create -n ncbi -f environment.yml
-```
+https://www.ncbi.nlm.nih.gov/datasets
 
-3. Activate environment:
-```
-conda activate ncbi
-```
+This zip archive contains an NCBI Datasets Data Package.
 
+NCBI Datasets Data Packages can include sequence, annotation and other data files, and metadata in one or more data report files.
+Data report files are in JSON Lines format.
 
-```python
-# conda activate ncbi
-from genbankpy.parser import GenBankFastaWriter, GBK
+---
+## FAQs
+### Where is the data I requested?
 
-"""
-This package requires:
+Your data is in the subdirectory `ncbi_dataset/data/` contained within this zip archive.
 
-pip install ncbi-acc-download
-"""
+### I still can't find my data, can you help?
 
-# First we need to define the NCBI entry ids to download the data
-entry_ids = [
-    'AE001863.1',
-    'AF000579.1',
-    'AF242489.1', 
-    'AP003593.1', 
-    'NC_000911.1',
-    'NC_007288.1'
-]
-gbkwriter = GenBankFastaWriter.fromAccessionIDs(entry_ids=entry_ids)
-# gbkwriter = GenBankFastaWriter.fromGBKdirectory('gbk_data')
-```
+We have identified a bug affecting Mac Safari users. When downloading data from the NCBI Datasets web interface, you may see only this README file after the download has completed (while other files appear to be missing).
+As a workaround to prevent this issue from recurring, we recommend disabling automatic zip archive extraction in Safari until Apple releases a bug fix.
+For more information, visit:
+https://www.ncbi.nlm.nih.gov/datasets/docs/reference-docs/mac-zip-bug/
 
-    Downloading GenBank files
-    Downloading entry: NC_007288.1 (6 / 6) (5 / 6)
+### How do I work with JSON Lines data reports?
 
+Visit our JSON Lines data report documentation page:
+https://www.ncbi.nlm.nih.gov/datasets/docs/how-tos/data-reports/working-with-jsonl-data-reports/
 
-```python
-# Write fasta containing all peptide sequences of these two organisms
-gbkwriter.writeSequencesInFasta(
-    gene_keywords={'product': ['any']},
-    output_fasta='results/allPeptides.faa', 
-    sequence='protein',
-    entry_ids=['AE001863.1', 'AP003593.1']
-)
+### What is NCBI Datasets?
 
-# Write fasta containing all nucleotide sequences of these two organisms
-gbkwriter.writeSequencesInFasta(
-    gene_keywords={'product': ['any']},
-    output_fasta='results/allNucleotides.fasta', 
-    sequence='nucleotide',
-    entry_ids=['AE001863.1', 'AP003593.1']
-)
+NCBI Datasets is a new resource that lets you easily gather data from across NCBI databases. Find and download gene, transcript, protein and genome sequences, annotation and metadata.
 
-# Write fasta containing nucleotide sequences of the two organisms corresponding to Urease alpha
-gbkwriter.writeSequencesInFasta(
-    gene_keywords={'product': ['urease', 'alpha']},
-    output_fasta='results/ureC.fasta', 
-    sequence='nucleotide'
-)
+### Where can I find NCBI Datasets documentation?
 
-# Write fasta containing peptide sequences of the two organisms corresponding to Urease alpha
-gbkwriter.writeSequencesInFasta(
-    gene_keywords={'product': ['urease', 'alpha']},
-    output_fasta='results/ureC.faa', 
-    sequence='protein',
-    entry_ids=['AE001863.1', 'AP003593.1']
-)
+Visit the NCBI Datasets documentaion pages:
+https://www.ncbi.nlm.nih.gov/datasets/docs/
 
-# Write fasta containing nucleotide sequences of all five corresponding to 16S
-gbkwriter.writeSequencesInFasta(
-    gene_keywords={'product': ['16S']},
-    output_fasta='results/16s.fasta', 
-    sequence='nucleotide',
-    entry_ids=None
-)
-```
+---
 
-# Initializing from list of species names
-
-
-```python
-sp_list = ['Emiliania huxleyi']
-
-gbkwriter = GenBankFastaWriter.fromSpecies(species_list=sp_list,
-                                           only_representatives=True,
-                                           data_dir='emiliania_data')
-
-
-gbkwriter.writeSequencesInFasta(
-    gene_keywords={'product': ['any']},
-    output_fasta='results/allPeptidesEmiliania.faa', 
-    sequence='protein'
-)
-```
-
-# Parsing GenBank files
-
-
-```python
-gbk = GBK('gbk_data/AE001863.1.gbk')
-```
-
-
-```python
-gbk.cds.get_by_gene_id('DRA0303')
-```
-
-
-
-
-    [SeqFeature(FeatureLocation(ExactPosition(113558), ExactPosition(113924), strand=-1), type='CDS')]
-
-
+National Center for Biotechnology Information
+National Library of Medicine
+info@ncbi.nlm.nih.gov

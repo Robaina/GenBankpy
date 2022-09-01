@@ -4,9 +4,11 @@
 """
 """
 
+from __future__ import annotations
 import os
 import shutil
 import warnings
+from pathlib import Path
 from typing import OrderedDict
 
 from Bio import SeqIO, SeqFeature, SeqRecord
@@ -18,7 +20,7 @@ from genbankpy.utils import setDefaultOutputPath, terminalExecute, fullPathListD
 
 class GenBankFastaWriter():
 
-    def __init__(self, data_files: dict) -> None:
+    def __init__(self, data_files: dict[Path]) -> None:
         """
         Tools to download selected GenBank feactures from NCBI records.
 
@@ -97,7 +99,6 @@ class GenBankFastaWriter():
         RefSeq 'representative genome'
         """
         downloaded_files = {}
-        # already_downloaded = os.listdir(gbk_dir)
         meta_dir = os.path.join(gbk_dir, "metadata/")
         if not os.path.exists(meta_dir):
             os.makedirs(meta_dir)
