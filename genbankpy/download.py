@@ -11,7 +11,7 @@ from __future__ import annotations
 import shutil
 import tempfile
 from pathlib import Path
-from genbankpy.utils import terminalExecute, getJSONlinesObject, unZipDirectory
+from genbankpy.utils import terminalExecute, unZipDirectory
 
 
 
@@ -45,17 +45,15 @@ class NCBIdownloader:
             terminalExecute(cmd_str, work_dir=tmpdirname)
             self._getDownloadedFiles(Path(tmpdirname), zipfilename)
 
-    def fromSpecies(self, species: list[str], data_directory: Path = None) -> dict[Path]:
+    def fromSpecies(self, species: str, data_directory: Path = None) -> dict[Path]:
         """
-        Download genomes from NCBI by species name
-        NOTE: seems like only one taxon at a time is possible, thus implement iterative method
+        Download genomes from NCBI by species name (a single species name)
         """
         data_dir = data_directory if data_directory is not None else self._data_dir
         self.updateDataDirectory(data_dir)
         zipfilename = "ncbi_dataset.zip"
-        species = [f"'{sp}'" for sp in species]
         cmd_str = (
-            f"datasets download genome taxon {','.join(species)} "
+            f"datasets download genome taxon '{species}' "
             f"--exclude-gff3 --exclude-protein --exclude-rna --exclude-seq --exclude-genomic-cds --include-gbff "
             f"--reference --annotated --assembly-level 'complete_genome' --assembly-source 'refseq' "
             f"--filename {zipfilename} --no-progressbar"
@@ -86,18 +84,6 @@ class NCBIdownloader:
             if "gb" in file.suffix
         }
 
-    def _getMetadata(self, data_directory: Path) -> list[dict]:
-        """
-        Get metadata of downloaded file as JSON
-        """
-        data_dir = data_directory if data_directory is not None else self._data_dir
-        json_file = [
-            file for file in data_dir.iterdir()
-            if "data_report.jsonl" in file.as_posix()
-            ].pop()
-        result = getJSONlinesObject(json_file)
-        return result
-
     def writeMetadataTable(self, data_directory: Path, output_file: Path = None) -> None:
         """
         Write download metadata to a tsv table
@@ -105,18 +91,17 @@ class NCBIdownloader:
         data_dir = data_directory if data_directory is not None else self._data_dir
         if output_file is None:
             output_file = data_dir / "metadata.tsv"
-        meta_dicts = self._getMetadata(data_dir)
-        with open(output_file, "w+") as meta:
-            lines = ["accession\tname\tlevel\tstatus\torganism\ttaxid\trelease\n"]
-            for meta_dict in meta_dicts:
-                line = (
-                    f"{meta_dict['assemblyInfo']['assemblyAccession']}\t"
-                    f"{meta_dict['assemblyInfo']['assemblyName']}\t"
-                    f"{meta_dict['assemblyInfo']['assemblyLevel']}\t"
-                    f"{meta_dict['assemblyInfo']['assemblyStatus']}\t"
-                    f"{meta_dict['organismName']}\t"
-                    f"{meta_dict['taxId']}\t"
-                    f"{meta_dict['annotationInfo']['name']}, {meta_dict['annotationInfo']['releaseDate']}\t"
-                )
-                lines.append(line + "\n")
-            meta.writelines(lines)
+
+        # (several jsonl may be pasted together)
+        meta_jsonl = [
+            file for file in data_dir.iterdir()
+            if "data_report.jsonl" in file.as_posix()
+            ].pop()
+    
+        cmd_str = (
+            f"dataformat tsv genome --inputfile {meta_jsonl} --fields "
+            "assminfo-accession,assminfo-name,assminfo-level,assminfo-status,organism-name,"
+            "tax-id,annotinfo-name,annotinfo-release-date "
+            f"> {output_file}"
+        )
+        terminalExecute(cmd_str, suppress_shell_output=False)

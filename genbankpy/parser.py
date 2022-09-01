@@ -14,7 +14,7 @@ from typing import OrderedDict
 from Bio import SeqIO, SeqFeature, SeqRecord
 import pandas as pd
 
-from genbankpy.utils import setDefaultOutputPath, terminalExecute, fullPathListDir, unZipFile, mergeMultiRecordGBK
+from genbankpy.utils import setDefaultOutputPath, fullPathListDir, unZipFile, mergeMultiRecordGBK
 
 
 
@@ -24,9 +24,7 @@ class GenBankFastaWriter():
         """
         Tools to download selected GenBank feactures from NCBI records.
 
-        Requires (pip) installing:
-        1. ncbi-genome-download (https://github.com/kblin/ncbi-genome-download)
-        2. ncbi-acc-download (https://github.com/kblin/ncbi-acc-download)
+        Requires installing:
 
         @Arguments:
         gbk_dir: path to directory where GenBank files are stored
@@ -57,7 +55,7 @@ class GenBankFastaWriter():
             gbk_dir = os.path.abspath(data_dir)
         if not os.path.isdir(gbk_dir):
             os.mkdir(gbk_dir)
-        data_files = cls.downloadGBKfromNCBI(entry_ids, gbk_dir)
+        data_files: dict[Path] = dict()
         return cls(data_files)
 
     @classmethod
@@ -74,8 +72,7 @@ class GenBankFastaWriter():
             gbk_dir = os.path.abspath(data_dir)
         if not os.path.isdir(gbk_dir):
             os.mkdir(gbk_dir)
-        data_files = cls.downloadGBKfromSpecies(species_list, gbk_dir,
-                                                only_representative=only_representatives)
+        data_files: dict[Path] = dict()
         return cls(data_files)
         
     @classmethod
@@ -89,89 +86,6 @@ class GenBankFastaWriter():
             for file in files
         }
         return cls(data_files)
-    
-    @staticmethod
-    def downloadGBKfromSpecies(species_list: list, gbk_dir: str,
-                               only_representative: bool = False) -> dict:
-        """
-        Download GenBank files from RefSeq given list of species names
-        If only_representative, only keep files tagged as 
-        RefSeq 'representative genome'
-        """
-        downloaded_files = {}
-        meta_dir = os.path.join(gbk_dir, "metadata/")
-        if not os.path.exists(meta_dir):
-            os.makedirs(meta_dir)
-        for n, species in enumerate(species_list):
-            species_id = species.replace(' ', '_')
-            print(f'Downloading data for species: {species} ({n + 1} / {len(species_list)})') # , end='\r')
-            meta_file = f"{species_id}_metadata.txt"
-            meta_path = os.path.join(meta_dir, meta_file)
-            cmd_str = (
-                f"ncbi-genome-download --genera '{species}' all "
-                f"--flat-output -o {gbk_dir} --metadata-table {meta_path}"
-            )
-            terminalExecute(cmd_str)
-            # Parse meta
-            if os.path.exists(meta_path):
-                meta = pd.read_csv(meta_path, sep='\t')
-                if only_representative:
-                    meta_norep = meta[
-                        (
-                            (meta.refseq_category != 'representative genome') |
-                            (meta.refseq_category != 'reference genome')
-                            )
-                        ]
-                    meta = meta[meta.refseq_category == 'representative genome']
-                    discarded_files = [row.local_filename for i, row in meta_norep.iterrows()]
-                    # Remove discarded files
-                    for file in discarded_files:
-                        os.remove(os.path.abspath(file))
-                for i, row in meta.iterrows():
-                    downloaded_files[
-                        f"{row.assembly_accession}_{species_id}"
-                        ] = os.path.abspath(row.local_filename)
-            else:
-                warnings.warn(f'Species {species} not found in database')
-        return downloaded_files
-
-    @staticmethod
-    def listNCBIfilesToDownload(species: str) -> list:
-        """
-        List downloadable genomes for given species
-        """
-        cmd_str = (
-            f"ncbi-genome-download --genera '{species}' all "
-            f"--flat-output --dry-run"
-        )
-        out = terminalExecute(cmd_str, return_output=True)
-        return [
-            f.split('\t')[0] 
-            for f in out.stdout.decode('UTF-8').split('\n')[1:] if f
-            ]
-    
-    @staticmethod
-    def downloadGBKfromNCBI(entry_ids: list, gbk_dir: str) -> None: 
-        """
-        Download GenBank files from NCBI from given list of entry IDs
-        """
-        print('Downloading GenBank files')
-        downloaded_files = {}
-        already_donwloaded = os.listdir(gbk_dir)
-        for n, entry_id in enumerate(entry_ids):
-            gbk_file = f'{entry_id}.gbk'
-            if gbk_file not in already_donwloaded:
-                print(f'Downloading entry: {entry_id} ({n + 1} / {len(entry_ids)})', end='\r')
-                outgbk = os.path.join(gbk_dir, gbk_file)
-                cmd_str = f'ncbi-acc-download -o {outgbk} {entry_id}'
-                terminalExecute(cmd_str)
-                if os.path.exists(outgbk):
-                    downloaded_files[entry_id] = outgbk
-                else:
-                    warnings.warn(f"File {gbk_file} could not be donwloaded")
-            else:
-                print(f'Skipping donwloaded entry: {entry_id} ({n + 1} / {len(entry_ids)})', end='\r')
-        return downloaded_files
     
     def _getGBKobject(self, gbk_path: str) -> list:
         gbk = GBK(gbk_path)
