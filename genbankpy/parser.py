@@ -7,7 +7,7 @@
 from __future__ import annotations
 import os
 import shutil
-import warnings
+import tempfile
 from pathlib import Path
 from typing import OrderedDict
 
@@ -21,17 +21,17 @@ class GenBankFastaWriter():
 
     def __init__(self, data_files: dict[Path]) -> None:
         """
-        Tools to download selected GenBank feactures from NCBI records.
+        Tools to download selected GenBank features from NCBI records.
 
         Requires installing:
 
         @Arguments:
-        gbk_dir: path to directory where GenBank files are stored
+        data_files: dict containing gbk file IDs and paths
         """
         self._data_files = data_files
         self._entry_ids = list(self._data_files.keys())
         self._gbks = {
-            entry_id: self._getGBKobject(gbk_path)
+            entry_id: self._getGBKobject(gbk_path.as_posix())
             for entry_id, gbk_path in self._data_files.items()
         }
 
@@ -44,34 +44,73 @@ class GenBankFastaWriter():
         return self._entry_ids
    
     @classmethod
-    def fromAccessionIDs(cls, entry_ids: list, data_dir: str = None):
+    def fromAccessionIDs(cls, entry_ids: list, data_dir: Path = None):
         """
-        Initialize class from list of RefSeq accession IDs
+        Initialize class from list of genome accession IDs
         """
         if data_dir is None:
-            gbk_dir = os.path.join(os.getcwd(), 'gbk_data')
-        else:
-            gbk_dir = os.path.abspath(data_dir)
-        if not os.path.isdir(gbk_dir):
-            os.mkdir(gbk_dir)
-        data_files: dict[Path] = dict()
+            data_dir = Path("gbk_data").mkdir(parents=True, exist_ok=True)
+        
+        downloader = NCBIdownloader(data_dir)
+        downloader.fromAccessionIDs(ids=entry_ids)
+        data_files = {
+            f"{file.stem}": file 
+            for file in data_dir
+            if "metadata" not in file.stem
+        }
         return cls(data_files)
 
     @classmethod
-    def fromSpecies(cls, species_list: list, data_dir: str = None,
-                    only_representatives: bool = True):
+    def fromSpecies(cls, species_list: list, data_dir: Path = None,
+                    only_latest: bool = True):
         """
         Initialize class from list of Species
-        If only_representative, only keep files tagged as 
-        RefSeq 'representative genome'
+        If only_latest: get only the latest representative genome of
+        each species
         """
         if data_dir is None:
-            gbk_dir = os.path.join(os.getcwd(), 'gbk_data')
-        else:
-            gbk_dir = os.path.abspath(data_dir)
-        if not os.path.isdir(gbk_dir):
-            os.mkdir(gbk_dir)
+            data_dir = Path("gbk_data")
+        if not data_dir.exists():
+            data_dir.mkdir(parents=True, exist_ok=True)
+        
         data_files: dict[Path] = dict()
+        metadata_list, meta_header = [], ""
+
+        for species in species_list:
+            species = " ".join(species.strip().split())
+            with tempfile.TemporaryDirectory() as tempdir:
+                downloader = NCBIdownloader(Path(tempdir))
+                downloader.fromSpecies(species)
+                files = [
+                    file for file in Path(tempdir).iterdir()
+                    if "metadata" not in file.stem
+                    ]
+                files.sort()
+                if only_latest:
+                    files = files[-1:]
+                for file in files:
+                    accession_id = file.stem
+                    new_file_path = data_dir / file.name
+                    data_files[
+                        f"{accession_id}_{species.replace(' ', '_')}"
+                        ] = new_file_path
+                    shutil.move(file, new_file_path)
+                with open(Path(tempdir) / "metadata.tsv", "r") as meta:
+                    meta_lines = meta.readlines()
+                    meta_header = meta_lines[0]
+                    metadata_list.append(
+                        [
+                            line for line in meta_lines
+                            if any([file.stem in line for file in files])
+                            ]
+                        )
+        metafile = data_dir / "metadata.tsv"
+        with open(metafile, "w+") as meta:
+            meta_lines = [meta_header]
+            for lines in metadata_list:
+                for line in lines:
+                    meta_lines.append(line)
+            meta.writelines(meta_lines)
         return cls(data_files)
         
     @classmethod
@@ -172,7 +211,6 @@ class GBK():
         """
         Tools to parse GenBank files
         """
-        print("Initializing parser...")
         # Deal with compressed GBKs
         if gbk_file.endswith('.gz'):
             unZipFile(
