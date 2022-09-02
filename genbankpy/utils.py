@@ -1,17 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-"""
-Obtain FASTA with gene sequences from list of NCBI accession ids
-Dependencies: ncbi-acc-download
-"""
+
 
 from __future__ import annotations
 import os
 import random
 import string
-import json
-import subprocess
 from zipfile import ZipFile
 from pathlib import Path
 
@@ -44,28 +39,22 @@ class TemporaryFilePath:
         if os.path.exists(self.file_path):
             os.remove(self.file_path)
 
-
 def terminalExecute(command_str: str,
-                    suppress_shell_output=False,
-                    work_dir: str = None,
-                    return_output=False) -> subprocess.STDOUT:
+                    work_dir: Path = None,
+                    suppress_shell_output=False) -> None:
     """
     Execute given command in terminal through Python
     """
+    current_dir = Path.cwd()
+    if work_dir is None:
+        work_dir = current_dir
     if suppress_shell_output:
-        stdout = subprocess.DEVNULL
+        output_str = " > /dev/null 2>&1"
     else:
-        stdout = None
-    output = subprocess.run(
-        command_str, shell=True,
-        cwd=work_dir, capture_output=return_output,
-        stdout=stdout
-        )
-    return output
-
-def getJSONlinesObject(json_file: Path) -> list[dict]:
-    with open(json_file, 'r') as JSON:
-        return [json.loads(jline) for jline in JSON.read().splitlines()]
+        output_str = ""
+    os.chdir(work_dir)
+    os.system(command_str + output_str)
+    os.chdir(current_dir)
 
 def unZipDirectory(input_zip: Path, output_dir: Path  = None) -> None:
     """
@@ -79,42 +68,14 @@ def unZipDirectory(input_zip: Path, output_dir: Path  = None) -> None:
 def contains_substring(substring, strings: list) -> bool:
     return any(substring in string for string in strings)
 
-def fullPathListDir(dir: str) -> list:
-    """
-    Return full path of files in provided directory
-    """
-    return [os.path.join(dir, file) for file in os.listdir(dir)]
-
-def setDefaultOutputPath(input_path: str, tag: str = None,
-                         extension: str = None,
-                         only_filename: bool = False,
-                         only_dirname: bool = False) -> str:
-    """
-    Get default path to output file or directory
-    """
-    basename = os.path.basename(input_path)
-    dirname = os.path.abspath(os.path.dirname(input_path))
-    fname, ext = os.path.splitext(basename)
-    if extension is None:
-        extension = ext
-    if tag is None:
-        tag = ''
-    default_file = f'{fname}{tag}{extension}'
-    if only_filename:
-        return default_file
-    if only_dirname:
-        return os.path.abspath(dirname)
-    else:
-        return os.path.abspath(os.path.join(dirname, default_file))
-
-def unZipFile(input_file: str):
+def unZipFile(input_file: Path):
     """
     Unzip gz file and remove .gz file
     """
     cmd_str = f"gzip -d {input_file}"
     terminalExecute(cmd_str)
 
-def mergeMultiRecordGBK(input_file: str, output_file: str) -> None:
+def mergeMultiRecordGBK(input_file: Path, output_file: Path) -> None:
     """
     Merge multi-record GBK into a single GBK
     via: https://github.com/kblin/merge-gbk-records

@@ -42,7 +42,7 @@ class NCBIdownloader:
             f"--filename {zipfilename} --no-progressbar"
         )
         with tempfile.TemporaryDirectory() as tmpdirname:
-            terminalExecute(cmd_str, work_dir=tmpdirname)
+            terminalExecute(cmd_str, work_dir=Path(tmpdirname))
             self._getDownloadedFiles(Path(tmpdirname), zipfilename)
 
     def fromSpecies(self, species: str,
@@ -65,7 +65,7 @@ class NCBIdownloader:
             f"--filename {zipfilename} --no-progressbar {dry_str}"
         )
         with tempfile.TemporaryDirectory() as tmpdirname:
-            terminalExecute(cmd_str, work_dir=tmpdirname, suppress_shell_output=True)
+            terminalExecute(cmd_str, work_dir=Path(tmpdirname), suppress_shell_output=True)
             self._getDownloadedFiles(Path(tmpdirname), zipfilename)
 
     def _getDownloadedFiles(self, download_dir: Path, zipfilename: str) -> None:
