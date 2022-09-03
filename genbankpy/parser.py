@@ -52,6 +52,8 @@ class GenBankFastaWriter():
         """
         if data_dir is None:
             data_dir = Path("gbk_data").mkdir(parents=True, exist_ok=True)
+        else:
+            data_dir = Path(data_dir)
         
         downloader = NCBIdownloader(data_dir)
         downloader.fromAccessionIDs(ids=entry_ids)
@@ -72,6 +74,8 @@ class GenBankFastaWriter():
         """
         if data_dir is None:
             data_dir = Path("gbk_data")
+        else:
+            data_dir = Path(data_dir)
         if not data_dir.exists():
             data_dir.mkdir(parents=True, exist_ok=True)
         
@@ -120,7 +124,11 @@ class GenBankFastaWriter():
         """
         Initialize class from directory containing GenBank files
         """
-        files = [file for file in gbk_dir.iterdir() if file.is_file()]
+        gbk_dir = Path(gbk_dir)
+        files = [
+            file for file in gbk_dir.iterdir()
+            if file.is_file() and "metadata" not in file.stem
+            ]
         data_files = {
             file.stem: file
             for file in files

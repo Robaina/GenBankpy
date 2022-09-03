@@ -5,6 +5,7 @@
 Download genome data from NCBI using NCBI's datasets CLI
 https://github.com/ncbi/datasets
 conda install -c conda-forge ncbi-datasets-cli
+
 """
 
 from __future__ import annotations
@@ -18,7 +19,7 @@ from genbankpy.utils import terminalExecute, unZipDirectory
 class NCBIdownloader:
 
     def __init__(self, data_directory: Path = None) -> None:
-        self._data_dir = data_directory
+        self._data_dir = Path(data_directory)
 
     def updateDataDirectory(self, data_directory: Path) -> None: 
         """

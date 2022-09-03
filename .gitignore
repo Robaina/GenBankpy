@@ -8,6 +8,7 @@ gbk_data/*
 data/*
 tree_test/
 demo_data/*
+traits/*
 
 # Files
 test.ipynb
