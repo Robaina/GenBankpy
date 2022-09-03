@@ -1,5 +1,7 @@
 # Downloading and parsing GenBank files from Python
 
+[![DOI](https://zenodo.org/badge/299416438.svg)](https://zenodo.org/badge/latestdoi/299416438)
+
 ## Installation
 1. Fork git repo into local machine (click on fork) and clone, or simply clone main branch with
 ```
