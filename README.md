@@ -1,4 +1,5 @@
-# Downloading and parsing GenBank files from Python
+![logo](assets/logo.png)
+## Downloading and parsing GenBank files from Python
 
 [![DOI](https://zenodo.org/badge/299416438.svg)](https://zenodo.org/badge/latestdoi/299416438)
 
