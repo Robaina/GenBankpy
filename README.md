@@ -25,4 +25,4 @@ You can find a jupyter notebook with usage examples [here](examples/examples.ipy
 
 If you use this software, please cite it as below:
 
-Robaina-Estévez, S. (2022). Genbankpy: a Python tool to ddownload and parse GenBank files (Version 0.0.1)[Computer software]. https://doi.org/10.5281/zenodo.7046036
+Robaina-Estévez, S. (2022). Genbankpy: a Python tool to ddownload and parse GenBank files (Version 0.0.1)[Computer software]. https://doi.org/10.5281/zenodo.7046036.
