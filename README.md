@@ -1,5 +1,5 @@
 ![logo](assets/logo.png)
-## A Python tool to ddownload and parse GenBank files
+## A Python tool to download and parse GenBank files
 
 [![DOI](https://zenodo.org/badge/434408493.svg)](https://zenodo.org/badge/latestdoi/434408493)
 
