@@ -1,6 +1,9 @@
 ![logo](assets/logo.png)
 ## A Python tool to download and parse GenBank files
 
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/Robaina/Genbankpy)
+[![GitHub license](https://img.shields.io/github/license/Robaina/GenBankpy)](https://github.com/Robaina/GenBankpy/blob/main/LICENSE)
+![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4)
 [![DOI](https://zenodo.org/badge/434408493.svg)](https://zenodo.org/badge/latestdoi/434408493)
 
 ## Installation
